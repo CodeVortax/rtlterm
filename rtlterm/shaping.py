@@ -8,6 +8,7 @@ with Python (`unicodedata`), where every presentation form lists the letter it s
 That covers Arabic, Persian, Urdu, Pashto, Kurdish, Sindhi and friends.
 """
 import unicodedata as ud
+from functools import lru_cache
 
 ISOLATED, FINAL, INITIAL, MEDIAL = "isolated", "final", "initial", "medial"
 _TAGS = (ISOLATED, FINAL, INITIAL, MEDIAL)
@@ -62,6 +63,7 @@ def is_arabic_mark(ch):
     return any(lo <= o <= hi for lo, hi in _MARK_RANGES)
 
 
+@lru_cache(maxsize=8192)
 def joining(ch):
     """'D' joins both sides, 'R' joins only the letter before it, 'U' does not join,
     'T' is transparent (marks), 'C' is the zero width joiner."""

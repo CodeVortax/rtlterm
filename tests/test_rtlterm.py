@@ -194,6 +194,89 @@ class Layout(unittest.TestCase):
         self.assertEqual(rtlterm.display_width("بَ"), 1)
 
 
+class Direction(unittest.TestCase):
+    """The default 'smart' rule: an id or number in front does not decide the direction."""
+
+    def lvl(self, text, base="smart"):
+        cls = bidi.classes(list(text))
+        return bidi.paragraph_level(cls, base)
+
+    def test_id_before_arabic_is_rtl(self):
+        self.assertEqual(self.lvl("b24fde4d0  مسلسل The Mentalist"), 1)
+        self.assertEqual(self.lvl("b24fde4d0  مسلسل The Mentalist", "auto"), 0)
+
+    def test_numbers_and_times_before_arabic(self):
+        self.assertEqual(self.lvl("12:00 عملية"), 1)
+        self.assertEqual(self.lvl("v2.1 العربية"), 1)
+
+    def test_plain_english_first_stays_ltr(self):
+        self.assertEqual(self.lvl("[INFO] عملية"), 0)
+        self.assertEqual(self.lvl("Season مسلسل"), 0)
+
+    def test_arabic_first_is_rtl_even_with_english_after(self):
+        self.assertEqual(self.lvl("مسلسل The Mentalist season 3 episode 17"), 1)
+
+    def test_only_codes_falls_back_to_first_letter(self):
+        self.assertEqual(self.lvl("b24 ا"), 1)
+        self.assertEqual(self.lvl("b24 c25"), 0)
+
+    def test_forced(self):
+        self.assertEqual(self.lvl("abc", "rtl"), 1)
+        self.assertEqual(self.lvl("ابج", "ltr"), 0)
+
+    def test_search_line_ends_flush_right_with_title_and_id(self):
+        out = rtlterm.fix("b24fde4d0  مسلسل The Mentalist الحلقة 13", width=60)
+        self.assertEqual(rtlterm.display_width(out), 60)          # flush right
+        self.assertTrue(out.endswith("b24fde4d0"))                 # id first = rightmost
+        self.assertIn("The Mentalist", out)
+
+
+class BigText(unittest.TestCase):
+    """A lot of text: nothing lost, never wider than the screen, time grows in a straight line."""
+
+    LETTERS = "ابتثجحخدذرزسشصضطظعغفقكلمنهوي"
+
+    def words(self, n, seed=5):
+        rnd = random.Random(seed)
+        return " ".join(
+            "".join(rnd.choice(self.LETTERS) for _ in range(rnd.randint(2, 8)))
+            if rnd.random() < 0.85 else rnd.choice(["The", "Mentalist", "17", "(ok)", "2026"])
+            for _ in range(n))
+
+    def test_20000_chars_one_line(self):
+        text = self.words(3500)
+        out = rtlterm.fix(text, width=60, align="left")
+        lines = out.split("\n")
+        self.assertGreater(len(lines), 300)
+        self.assertTrue(all(rtlterm.display_width(x) <= 60 for x in lines))
+        keep = lambda t: sorted(c for c in t if c not in " \n")  # noqa: E731
+        fold = lambda t: sorted(min(c, bidi.MIRROR.get(c, c)) for c in keep(t))  # noqa: E731
+        self.assertEqual(fold(out), fold(rtlterm.shape(text)))
+
+    def test_many_lines(self):
+        lines = [self.words(12, seed=i) for i in range(3000)]
+        out = [fix_line(x, width=50) for x in lines]
+        self.assertEqual(len(out), 3000)
+
+    def test_time_is_linear_not_quadratic(self):
+        import time
+        small, big = self.words(2000), self.words(16000)
+        t0 = time.perf_counter()
+        rtlterm.fix(small, width=60)
+        t1 = time.perf_counter()
+        rtlterm.fix(big, width=60)
+        t2 = time.perf_counter()
+        # 8x the text should cost about 8x; a quadratic bug would cost about 64x
+        self.assertLess(t2 - t1, 25 * max(t1 - t0, 0.01))
+
+    def test_huge_word_and_many_colours(self):
+        out = rtlterm.fix("ب" * 5000, width=40, align="left").split("\n")
+        self.assertEqual(len(out), 125)
+        coloured = " ".join(f"\x1b[3{i % 7 + 1}m{w}\x1b[0m" for i, w in enumerate(self.words(1500).split()))
+        res = rtlterm.fix(coloured, width=40, align="left")
+        self.assertTrue(all(rtlterm.display_width(ANSI.sub("", x)) <= 40 for x in res.split("\n")))
+
+
 class Properties(unittest.TestCase):
     """Random text: nothing is lost, nothing is added, lines never exceed the width."""
 

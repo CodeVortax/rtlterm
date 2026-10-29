@@ -42,12 +42,38 @@ def has_rtl(text):
     return any(ud.bidirectional(c) in ("R", "AL") for c in text)
 
 
-def paragraph_level(cls, base="auto", default="ltr"):
-    """0 for a left-to-right paragraph, 1 for right-to-left."""
+_SEP = {"WS", "S", "B"}
+
+
+def paragraph_level(cls, base="smart", default="ltr"):
+    """0 for a left-to-right paragraph, 1 for right-to-left.
+
+    base: 'rtl' / 'ltr' force it.
+          'auto'  standard rule: the first strong letter decides.
+          'smart' like auto, but words that contain digits (ids, numbers, times, versions,
+                  like "b24fde4d0  مسلسل ...") are skipped, so a code in front of an Arabic
+                  sentence does not turn the whole line left-to-right.
+    """
     if base == "ltr":
         return 0
     if base == "rtl":
         return 1
+    n = len(cls)
+    if base == "smart":
+        i = 0
+        while i < n:
+            while i < n and cls[i] in _SEP:
+                i += 1
+            j, digit, strong = i, False, None
+            while j < n and cls[j] not in _SEP:
+                if cls[j] == "EN":
+                    digit = True
+                elif strong is None and cls[j] in _STRONG:
+                    strong = cls[j]
+                j += 1
+            if strong and not digit:
+                return 0 if strong == "L" else 1
+            i = j
     for c in cls:
         if c == "L":
             return 0

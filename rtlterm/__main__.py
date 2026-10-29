@@ -11,6 +11,7 @@ from .shaping import shape
 
 SAMPLES = [
     "مسلسل The Mentalist الموسم الثالث الحلقة 17",
+    "b24fde4d0  مسلسل The Mentalist الموسم السابع الحلقة 13",
     "مرحباً بالعالم (تجربة) 2026",
     "سلام دنیا، حال شما چطور است؟",
     "שלום עולם 123",
@@ -33,7 +34,7 @@ def demo(width):
     section("4. joined + reordered + flush right",
             lambda s: fix_line(s, width=width or 40, align="right"))
     print(f"\n{bar}\nlong line wrapped at {min(width or 40, 40)} columns\n{bar}")
-    print(fix_line(" ".join(SAMPLES[:2] * 2), width=min(width or 40, 40)))
+    print(fix_line(" ".join(SAMPLES[:1] * 4), width=min(width or 40, 40)))
     return 0
 
 
@@ -44,8 +45,9 @@ def main(argv=None):
     ap.add_argument("--width", type=int, help="wrap/align width (default: terminal width)")
     ap.add_argument("--no-wrap", action="store_true", help="never wrap long lines")
     ap.add_argument("--align", choices=["auto", "left", "right", "center"], default="auto")
-    ap.add_argument("--base", choices=["auto", "rtl", "ltr"], default="auto",
-                    help="paragraph direction (default: from the first strong letter)")
+    ap.add_argument("--base", choices=["smart", "auto", "rtl", "ltr"], default="smart",
+                    help="line direction: smart (default) = first word with letters, skipping "
+                         "ids and numbers; auto = first letter; rtl / ltr = force")
     ap.add_argument("--default", choices=["ltr", "rtl"], default="ltr",
                     help="direction when a line has no letters (numbers only)")
     ap.add_argument("--marks", choices=["keep", "strip"], default="keep",

@@ -1,7 +1,9 @@
 """How many terminal cells a character takes (a small wcwidth)."""
 import unicodedata as ud
+from functools import lru_cache
 
 
+@lru_cache(maxsize=8192)
 def cell_width(ch):
     o = ord(ch)
     if o < 32 or 0x7F <= o < 0xA0:

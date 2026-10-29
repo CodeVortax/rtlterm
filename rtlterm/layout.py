@@ -4,6 +4,7 @@ Colour codes (ANSI escapes) are understood: every visible character remembers th
 it had, so colours stay on the right letters after the text is reversed.
 """
 import re
+import unicodedata as ud
 
 from . import bidi, shaping
 from .width import cell_width
@@ -66,6 +67,8 @@ def tokenize(line):
 def _shape(items, marks):
     """Shape the characters. Returns (new items, escapes that lost their character)."""
     shaped = shaping.shape_items([it.ch for it in items], marks)
+    if not any(it.pre for it in items):           # common case: no stray escapes to track
+        return [Item(ch, items[src[0]].style) for ch, src in shaped], ""
     out, firsts, used = [], [], set()
     for ch, src in shaped:
         out.append(Item(ch, items[src[0]].style, "".join(items[k].pre for k in src)))
@@ -88,7 +91,7 @@ def _drop_removed(items):
     """Remove invisible formatting characters, keeping their escapes."""
     out, carry = [], ""
     for it in items:
-        if bidi.is_removed(bidi.classes([it.ch])[0]):
+        if bidi.is_removed(ud.bidirectional(it.ch)):
             carry += it.pre
             continue
         if carry:
@@ -146,7 +149,7 @@ def _emit(order_items, tail=""):
     return "".join(out)
 
 
-def fix_line(line, *, width=None, base="auto", default="ltr", align="auto",
+def fix_line(line, *, width=None, base="smart", default="ltr", align="auto",
              marks="keep", digits=None, wrap=True, do_shape=True, do_bidi=True):
     """Fix one logical line. Returns one or more output lines joined by newlines."""
     if "\r" in line:
@@ -157,7 +160,7 @@ def fix_line(line, *, width=None, base="auto", default="ltr", align="auto",
         return line                               # nothing right-to-left here: leave as is
     if do_shape and any(shaping.is_presentation_form(c) for c in line):
         do_shape = False                          # already shaped (running twice is safe)
-        if do_bidi and base == "auto":
+        if do_bidi and base in ("auto", "smart"):
             return line
 
     line = line.expandtabs(8)
@@ -177,6 +180,7 @@ def fix_line(line, *, width=None, base="auto", default="ltr", align="auto",
     para = bidi.paragraph_level(cls, base, default) if do_bidi else 0
     levels = bidi.resolve_levels(cls, para) if do_bidi else [0] * len(items)
 
+    chars = [it.ch for it in items]               # built once: used for every wrapped line
     ranges = wrap_ranges(items, width if wrap else None)
     lines = []
     for k, (s, e) in enumerate(ranges):
@@ -184,7 +188,7 @@ def fix_line(line, *, width=None, base="auto", default="ltr", align="auto",
             e -= 1                                # drop the space where the line was cut
         if do_bidi:
             order = bidi.marks_after_base(
-                bidi.visual_order(s, e, levels, cls, para), [it.ch for it in items])
+                bidi.visual_order(s, e, levels, cls, para), chars)
         else:
             order = list(range(s, e))
         shown = []
