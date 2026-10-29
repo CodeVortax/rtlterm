@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rtlterm"
+version = "0.1.0"
+description = "Make Arabic, Persian, Urdu and Hebrew readable in terminals that cannot join letters or reverse right-to-left text (built for Termux). No dependencies."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+dependencies = []
+
+[project.scripts]
+rtlterm = "rtlterm.__main__:main"
+
+[tool.setuptools]
+packages = ["rtlterm"]
