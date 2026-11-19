@@ -97,3 +97,7 @@ word with no spaces is broken into full-width lines.
 ```bash
 python -m unittest discover -s tests -v
 ```
+
+## License
+
+AGPL-3.0-only. See [LICENSE](LICENSE).
